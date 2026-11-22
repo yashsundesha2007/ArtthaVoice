@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', sans-serif;
+  color-scheme: light;
+}
+
+/* Elder Accessibility overrides */
+body {
+  font-size: 18px;
+  line-height: 1.6;
+  background-color: #F8FAFC;
+  color: #0F172A;
+}
+
+/* High contrast mode */
+.high-contrast {
+  --tw-border-opacity: 1 !important;
+  border-color: #000000 !important;
+}
+.high-contrast body {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+/* Large touch targets */
+button, input, select {
+  min-height: 48px;
+  touch-action: manipulation;
+}
+
+/* Focus styles for keyboard / assistive tech navigation */
+*:focus-visible {
+  outline: 3px solid #059669;
+  outline-offset: 3px;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #94A3B8;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
