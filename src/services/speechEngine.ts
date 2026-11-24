@@ -19,16 +19,23 @@ class SpeechAudioService {
 
   // Initialize Web Speech API with fallback
   private initSpeechRecognition() {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    try {
+      const SpeechRecognition =
+        typeof window !== 'undefined'
+          ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+          : null;
 
-    if (SpeechRecognition) {
-      this.recognition = new SpeechRecognition();
-      // Continuous = true allows natural pauses without abruptly stopping
-      this.recognition.continuous = true;
-      this.recognition.interimResults = true;
-      this.recognition.maxAlternatives = 3;
-      this.recognition.lang = this.currentLanguage;
+      if (SpeechRecognition) {
+        this.recognition = new SpeechRecognition();
+        // Continuous = true allows natural pauses without abruptly stopping
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.maxAlternatives = 3;
+        this.recognition.lang = this.currentLanguage;
+      }
+    } catch (e) {
+      console.warn('SpeechRecognition initialization deferred or unavailable:', e);
+      this.recognition = null;
     }
   }
 
