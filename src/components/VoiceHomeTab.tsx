@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Mic,
   MicOff,
@@ -9,6 +9,9 @@ import {
   ArrowRight,
   TrendingUp,
   Volume2,
+  Edit2,
+  Send,
+  Languages,
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { VoiceConfirmationCard } from './VoiceConfirmationCard';
@@ -29,12 +32,15 @@ interface VoiceHomeTabProps {
   pendingConfirmation: ParsedVoiceResult | null;
   todayTransactions: Transaction[];
   isHandsFree: boolean;
+  selectedSpeechLang: string;
+  onChangeSpeechLang: (lang: string) => void;
   onToggleListening: () => void;
   onToggleHandsFree: () => void;
   onConfirmExpense: () => void;
   onRejectOrModifyExpense: () => void;
   onUpdateItemAmount: (id: string, newAmount: number) => void;
   onNavigateTab: (tab: 'home' | 'history' | 'budgets' | 'reports') => void;
+  onDirectSubmitTranscript: (text: string) => void;
   queryAnswer: {
     summary: string;
     voiceResponse: string;
@@ -53,15 +59,39 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
   pendingConfirmation,
   todayTransactions,
   isHandsFree,
+  selectedSpeechLang,
+  onChangeSpeechLang,
   onToggleListening,
   onToggleHandsFree,
   onConfirmExpense,
   onRejectOrModifyExpense,
   onUpdateItemAmount,
   onNavigateTab,
+  onDirectSubmitTranscript,
   queryAnswer,
 }) => {
+  const [manualText, setManualText] = useState('');
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false);
+
   const todayTotal = todayTransactions.reduce((acc, t) => acc + t.amount, 0);
+
+  const quickPhrases = [
+    { label: '⛽ 500 ka patrol', text: '500 ka patrol' },
+    { label: '🥒 Sabzi 120 + Auto 60', text: 'Arre aaj sabzi pe 120 aur auto ka 60 diya' },
+    { label: '🥛 Taza Doodh 60', text: 'Aaj doodh ka 60 rupaye diya' },
+    { label: '💊 BP Dawa 320', text: 'Dawa 320 rupaye' },
+    { label: '⚡ Bijli Bill 1450', text: 'Bijli ka bill 1450' },
+    { label: '❓ Food Budget Query', text: 'Food budget kitna bacha hai?' },
+  ];
+
+  const handleManualSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (manualText.trim()) {
+      onDirectSubmitTranscript(manualText.trim());
+      setManualText('');
+      setIsEditingTranscript(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -79,16 +109,50 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
       ) : (
         /* Normal Voice Capture Centerpiece */
         <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-xl p-6 md:p-10 text-center relative overflow-hidden">
-          {/* Noise Resilience & Language status pill bar */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs md:text-sm font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
-              Auto-Detect: Hindi &bull; Hinglish &bull; Gujarati &bull; Rajasthani
+          {/* Speech Engine & Language Mode Bar */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+            <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+              <Languages className="w-4 h-4 text-emerald-700" />
+              Mic Mode:
             </span>
+            <button
+              onClick={() => onChangeSpeechLang('hi-IN')}
+              className={`px-3 py-1 rounded-full text-xs font-extrabold border transition ${
+                selectedSpeechLang === 'hi-IN'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                  : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              🇮🇳 Hindi / Devanagari (hi-IN)
+            </button>
 
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs md:text-sm font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm">
-              <Radio className="w-4 h-4 text-blue-600" />
-              Noise Filter Active (Auto / Mandi Suppressed)
+            <button
+              onClick={() => onChangeSpeechLang('en-IN')}
+              className={`px-3 py-1 rounded-full text-xs font-extrabold border transition ${
+                selectedSpeechLang === 'en-IN'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                  : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              🌐 Hinglish / Indian English (en-IN)
+            </button>
+
+            <button
+              onClick={() => onChangeSpeechLang('gu-IN')}
+              className={`px-3 py-1 rounded-full text-xs font-extrabold border transition ${
+                selectedSpeechLang === 'gu-IN'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                  : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              🦁 Gujarati (gu-IN)
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+              <Radio className="w-3.5 h-3.5 text-blue-600" />
+              Auto Noise Suppression &bull; VAD Floor: Active
             </span>
           </div>
 
@@ -103,7 +167,7 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
           </h2>
 
           <p className="text-base md:text-lg text-slate-600 max-w-xl mx-auto mt-2 font-medium">
-            "Arre aaj sabzi pe 120 aur auto ka 60 diya" ya Gujarati/Rajasthani mein bolein.
+            "Arre aaj sabzi pe 120 aur auto ka 60 diya" ya Hindi/English/Gujarati mein bolein.
           </p>
 
           {/* Real-time Audio Waveform Visualizer */}
@@ -133,7 +197,7 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
               }`}
               aria-label={
                 isListening
-                  ? 'Recording band karein'
+                  ? 'Recording band karein aur parse karein'
                   : 'Boliye: Mic shuru karein'
               }
             >
@@ -141,7 +205,7 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
                 <>
                   <MicOff className="w-12 h-12 md:w-14 md:h-14 animate-pulse" />
                   <span className="text-xs font-bold uppercase tracking-wider mt-1">
-                    Stop
+                    Stop / Done
                   </span>
                 </>
               ) : (
@@ -156,7 +220,7 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
           </div>
 
           {/* Hands-free mode toggle button */}
-          <div className="mt-4 flex items-center justify-center gap-3">
+          <div className="mt-3 flex items-center justify-center gap-3">
             <button
               onClick={onToggleHandsFree}
               className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 border transition ${
@@ -176,12 +240,12 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
             </button>
           </div>
 
-          {/* Live Transcript Preview Box */}
+          {/* Live Transcript Preview Box & Instant Voice-Text Editor */}
           {liveTranscript && (
-            <div className="mt-6 p-4 rounded-2xl bg-slate-50 border-2 border-emerald-300 max-w-lg mx-auto text-left shadow-sm animate-in fade-in">
+            <div className="mt-6 p-4 rounded-2xl bg-slate-50 border-2 border-emerald-300 max-w-xl mx-auto text-left shadow-sm animate-in fade-in">
               <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-                <span>LIVE TRANSCRIPT</span>
-                <span className="text-emerald-700">
+                <span>WHAT THE MIC HEARD (LIVE TRANSCRIPT):</span>
+                <span className="text-emerald-700 font-extrabold">
                   {detectedLanguage} Auto-Detected
                 </span>
               </div>
@@ -192,11 +256,65 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
               {fillersRemoved.length > 0 && (
                 <div className="mt-2 text-xs text-blue-700 font-semibold flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Auto-cleaning filler words: {fillersRemoved.join(', ')}
+                  Cleaned fillers: {fillersRemoved.join(', ')}
                 </div>
               )}
+
+              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-500 font-medium">
+                  Mis-heard or noisy? You can edit or submit directly:
+                </span>
+                <button
+                  onClick={() => {
+                    setManualText(liveTranscript);
+                    setIsEditingTranscript(true);
+                  }}
+                  className="px-3 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 transition"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit / Fix</span>
+                </button>
+              </div>
             </div>
           )}
+
+          {/* Manual Text Fallback & Direct Voice Input */}
+          <div className="mt-6 max-w-xl mx-auto">
+            <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder="Or type here (e.g. Sabzi 120 aur auto 60)..."
+                className="flex-1 px-4 py-3 rounded-2xl bg-slate-50 border-2 border-slate-300 text-base font-semibold text-slate-900 focus:bg-white focus:border-emerald-600 transition"
+              />
+              <button
+                type="submit"
+                className="py-3 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 transition shadow"
+              >
+                <span>Process</span>
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+
+          {/* Quick Voice Phrase Chips for instant testing */}
+          <div className="mt-5 max-w-xl mx-auto">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              Quick Voice Test Chips:
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {quickPhrases.map((qp, i) => (
+                <button
+                  key={i}
+                  onClick={() => onDirectSubmitTranscript(qp.text)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-800 hover:text-emerald-900 text-xs font-bold border border-slate-200 hover:border-emerald-400 transition"
+                >
+                  {qp.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Financial Query Response Banner if answered */}
           {queryAnswer && (
@@ -256,34 +374,34 @@ export const VoiceHomeTab: React.FC<VoiceHomeTabProps> = ({
           <div className="flex items-center gap-2 mb-3">
             <Volume2 className="w-5 h-5 text-emerald-700" />
             <h3 className="text-lg font-extrabold text-emerald-950">
-              Aap Yeh Sab Bol Sakte Hain (Try Speaking):
+              Clear Speech Tips for Elders (साफ आवाज के लिए):
             </h3>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div className="p-2.5 rounded-xl bg-white/80 border border-emerald-200 text-slate-800 font-medium">
               <strong className="text-emerald-800 block text-xs uppercase">
-                Multi-Item Log:
+                1. Language Mode:
+              </strong>
+              If speaking English/Hinglish, tap "Hinglish (en-IN)" above.
+            </div>
+            <div className="p-2.5 rounded-xl bg-white/80 border border-emerald-200 text-slate-800 font-medium">
+              <strong className="text-emerald-800 block text-xs uppercase">
+                2. Natural Speech:
               </strong>
               "Sabzi pe 120 aur auto ka 60 diya"
             </div>
             <div className="p-2.5 rounded-xl bg-white/80 border border-emerald-200 text-slate-800 font-medium">
               <strong className="text-emerald-800 block text-xs uppercase">
-                Regional Gujarati:
+                3. When Done:
               </strong>
-              "Aaje shaak na 120 ane auto na 60 aapya"
+              Tap "Stop / Done" or pause to trigger instant confirmation!
             </div>
             <div className="p-2.5 rounded-xl bg-white/80 border border-emerald-200 text-slate-800 font-medium">
               <strong className="text-emerald-800 block text-xs uppercase">
-                Budget Query:
+                4. Voice Query:
               </strong>
               "Food budget kitna bacha hai?"
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/80 border border-emerald-200 text-slate-800 font-medium">
-              <strong className="text-emerald-800 block text-xs uppercase">
-                Voice Navigation:
-              </strong>
-              "Report dikhao aur suna do"
             </div>
           </div>
         </div>

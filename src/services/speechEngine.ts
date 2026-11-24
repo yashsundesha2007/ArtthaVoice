@@ -7,9 +7,11 @@ class SpeechAudioService {
   private stream: MediaStream | null = null;
   private recognition: any = null;
   private isListening = false;
-  private vadThreshold = 0.035; // Energy threshold to cut out street/market rumble
+  // Lowered threshold from 0.035 to 0.012 to easily catch softer voices without cutting words
+  private vadThreshold = 0.012;
   private onVolumeChangeCallback: ((volume: number, isVoiceDetected: boolean) => void) | null = null;
   private animFrameId: number | null = null;
+  private currentLanguage = 'hi-IN';
 
   constructor() {
     this.initSpeechRecognition();
@@ -22,22 +24,27 @@ class SpeechAudioService {
 
     if (SpeechRecognition) {
       this.recognition = new SpeechRecognition();
-      this.recognition.continuous = false;
+      // Continuous = true allows natural pauses without abruptly stopping
+      this.recognition.continuous = true;
       this.recognition.interimResults = true;
       this.recognition.maxAlternatives = 3;
-      // Default to Indian English / Hindi mix
-      this.recognition.lang = 'hi-IN';
+      this.recognition.lang = this.currentLanguage;
     }
   }
 
-  // Set recognition language if needed (though our parser handles all multilingual inputs dynamically)
+  // Switch recognition language: 'hi-IN', 'en-IN', 'gu-IN'
   public setLanguage(langCode: string) {
+    this.currentLanguage = langCode;
     if (this.recognition) {
       this.recognition.lang = langCode;
     }
   }
 
-  // Initialize Web Audio with aggressive noise suppression, echo cancellation & AGC
+  public getLanguage(): string {
+    return this.currentLanguage;
+  }
+
+  // Initialize Web Audio with high-gain noise suppression and full vocal spectrum preservation
   public async initAudioPipeline(): Promise<boolean> {
     try {
       if (this.audioContext && this.audioContext.state === 'suspended') {
@@ -45,7 +52,6 @@ class SpeechAudioService {
       }
 
       if (!this.stream) {
-        // High-res audio constraints specified in prompt
         const constraints: MediaStreamConstraints = {
           audio: {
             noiseSuppression: true,
@@ -63,18 +69,24 @@ class SpeechAudioService {
         this.audioContext = new AudioCtx();
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 256;
-        this.analyser.smoothingTimeConstant = 0.8;
+        this.analyser.smoothingTimeConstant = 0.6;
 
         this.microphone = this.audioContext.createMediaStreamSource(this.stream);
 
-        // Optional BiquadFilter to cut low-frequency street rumble (< 100Hz) & extreme high whistles (> 7500Hz)
-        const bandpass = this.audioContext.createBiquadFilter();
-        bandpass.type = 'bandpass';
-        bandpass.frequency.value = 1800;
-        bandpass.Q.value = 0.6;
+        // Highpass at 60Hz to eliminate sub-audio desk/floor rumble while keeping all vocal fundamentals (85Hz+)
+        const highpass = this.audioContext.createBiquadFilter();
+        highpass.type = 'highpass';
+        highpass.frequency.value = 60;
 
-        this.microphone.connect(bandpass);
-        bandpass.connect(this.analyser);
+        // Mild vocal presence boost at 2500Hz
+        const presence = this.audioContext.createBiquadFilter();
+        presence.type = 'peaking';
+        presence.frequency.value = 2500;
+        presence.gain.value = 3;
+
+        this.microphone.connect(highpass);
+        highpass.connect(presence);
+        presence.connect(this.analyser);
       }
 
       this.startVADLoop();
@@ -85,7 +97,7 @@ class SpeechAudioService {
     }
   }
 
-  // VAD Loop: continuously measures root mean square energy and checks against market noise floor
+  // VAD Loop: measures vocal energy without clipping quiet consonants
   private startVADLoop() {
     if (!this.analyser) return;
     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
@@ -94,14 +106,12 @@ class SpeechAudioService {
       if (!this.analyser) return;
       this.analyser.getByteFrequencyData(dataArray);
 
-      // Calculate average RMS
       let sum = 0;
       for (let i = 0; i < dataArray.length; i++) {
         sum += dataArray[i];
       }
       const avg = sum / dataArray.length / 255; // 0 to 1
 
-      // Threshold check: voice activity vs background rumble
       const isVoiceDetected = avg > this.vadThreshold;
 
       if (this.onVolumeChangeCallback) {
@@ -122,7 +132,7 @@ class SpeechAudioService {
     return this.analyser;
   }
 
-  // Start Voice Recognition
+  // Start Voice Recognition with live interim feedback
   public startListening(
     onResult: (transcript: string, isFinal: boolean) => void,
     onError: (err: any) => void,
@@ -131,6 +141,10 @@ class SpeechAudioService {
     if (this.isListening) return;
 
     this.playTone(440, 0.1, 'sine'); // Gentle cue chime
+
+    if (!this.recognition) {
+      this.initSpeechRecognition();
+    }
 
     if (!this.recognition) {
       onError({ error: 'speech_recognition_unavailable' });
@@ -153,12 +167,17 @@ class SpeechAudioService {
       }
 
       const text = final || interim;
-      onResult(text, Boolean(final));
+      if (text.trim()) {
+        onResult(text.trim(), Boolean(final));
+      }
     };
 
     this.recognition.onerror = (event: any) => {
-      this.isListening = false;
-      onError(event);
+      console.warn('Speech recognition event error:', event.error);
+      if (event.error !== 'no-speech') {
+        this.isListening = false;
+        onError(event);
+      }
     };
 
     this.recognition.onend = () => {
@@ -167,6 +186,7 @@ class SpeechAudioService {
     };
 
     try {
+      this.recognition.lang = this.currentLanguage;
       this.recognition.start();
     } catch (e) {
       console.warn('Recognition start caught error:', e);
@@ -208,7 +228,6 @@ class SpeechAudioService {
     }
   }
 
-  // Success chime (double tone)
   public playSuccessChime() {
     this.playTone(523.25, 0.12, 'sine'); // C5
     setTimeout(() => {
@@ -216,7 +235,6 @@ class SpeechAudioService {
     }, 120);
   }
 
-  // Alert chime (amber/red threshold)
   public playAlertChime() {
     this.playTone(440, 0.15, 'triangle');
     setTimeout(() => {
@@ -224,22 +242,18 @@ class SpeechAudioService {
     }, 160);
   }
 
-  // High-contrast, crystal clear Text-to-Speech for Indian elders
   public speak(text: string, onEnd?: () => void) {
     if (!('speechSynthesis' in window)) {
       if (onEnd) onEnd();
       return;
     }
 
-    // Cancel existing speech
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    // Slower, clearer rate for elderly comprehension
     utterance.rate = 0.92;
     utterance.pitch = 1.0;
 
-    // Pick best available Indian voice (Hindi, Indian English, or generic)
     const voices = window.speechSynthesis.getVoices();
     const indianVoice = voices.find(
       (v) =>

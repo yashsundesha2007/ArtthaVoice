@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Edit2,
+  Mic,
 } from 'lucide-react';
 import { speechService } from '../services/speechEngine';
 
@@ -24,7 +25,7 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
   onConfirm,
   onRejectOrModify,
   onUpdateItemAmount,
-  isConfirmingAloud = false,
+  isConfirmingAloud = true,
 }) => {
   const { items, detectedLanguage, fillersRemoved, midSentenceCorrections, rawTranscript } =
     parsedResult;
@@ -32,9 +33,7 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
 
   const handleReadAloudAgain = () => {
-    const speechSummary =
-      items.map((i) => `${i.item}, ${i.amount} rupaye`).join('. ') + '. Sahi hai?';
-    speechService.speak(speechSummary);
+    speechService.speak(`${rawTranscript}, sahi hai?`);
   };
 
   return (
@@ -47,10 +46,11 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
           </div>
           <div>
             <h3 className="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight">
-              Aapka Kharch (Confirm & Save)
+              Aapka Kharch (Voice Confirmation)
             </h3>
-            <p className="text-sm font-semibold text-emerald-700">
-              {isConfirmingAloud ? '🎙️ Sun rahe hain: "Haan" ya "Nahi" bolein...' : 'Bol kar ya tap karke save karein'}
+            <p className="text-sm font-semibold text-emerald-700 flex items-center gap-1.5 mt-0.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+              <span>Mic Active: "Haan" bol kar turant save karein</span>
             </p>
           </div>
         </div>
@@ -70,12 +70,13 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
         </div>
       </div>
 
-      {/* Raw Spoken vs Cleaned Banner */}
-      <div className="my-4 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-sm">
-        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-          Aapne Bola (Spoken Speech):
+      {/* Repeating what the user said with high contrast */}
+      <div className="my-4 p-4 bg-emerald-50/70 rounded-2xl border-2 border-emerald-300 text-sm">
+        <div className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+          <Mic className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+          <span>Aapne Bola (Assistant Repeating Your Words):</span>
         </div>
-        <div className="text-slate-800 font-medium italic text-base">
+        <div className="text-slate-900 font-extrabold text-lg md:text-xl italic">
           "{rawTranscript}"
         </div>
 
@@ -114,10 +115,10 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
         {items.map((item, idx) => (
           <div
             key={item.id || idx}
-            className="flex items-center justify-between p-3.5 md:p-4 rounded-2xl bg-emerald-50/60 border-2 border-emerald-200 transition hover:border-emerald-400"
+            className="flex items-center justify-between p-3.5 md:p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 transition hover:border-emerald-400"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white border border-emerald-300 flex items-center justify-center text-lg font-bold text-emerald-800 shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-white border border-slate-300 flex items-center justify-center text-lg font-bold text-slate-800 shadow-sm">
                 {idx + 1}
               </div>
               <div>
@@ -125,7 +126,7 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
                   {item.item}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-200 text-emerald-900">
+                  <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-300">
                     Category: {item.category}
                   </span>
                   <span className="text-xs font-medium text-slate-500">
@@ -169,17 +170,18 @@ export const VoiceConfirmationCard: React.FC<VoiceConfirmationCardProps> = ({
         </div>
       )}
 
-      {/* Voice Prompt Text */}
-      <div className="p-3 bg-emerald-100/70 border border-emerald-300 rounded-2xl text-center mb-5">
-        <div className="text-sm md:text-base font-bold text-emerald-900">
-          🗣️ Bol kar confirm karein:
+      {/* Active Voice Listening Banner */}
+      <div className="p-4 bg-emerald-600 text-white rounded-2xl text-center mb-5 shadow-md">
+        <div className="flex items-center justify-center gap-2 text-base md:text-lg font-black">
+          <Mic className="w-5 h-5 animate-bounce" />
+          <span>Assistant: "{rawTranscript}, sahi hai?"</span>
         </div>
-        <div className="text-xs md:text-sm text-emerald-800 font-medium mt-0.5">
-          "Haan / Yes" ➔ Save karein &bull; "Nahi, sabzi 150 tha" ➔ Badlein
+        <div className="text-xs md:text-sm text-emerald-100 font-semibold mt-1">
+          Say <strong>"Yes" / "Haan"</strong> to save by voice &bull; Say <strong>"No" / "Nahi"</strong> if wrong.
         </div>
       </div>
 
-      {/* Action Buttons for Easy Touch */}
+      {/* Action Buttons (Touch Fallback) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           onClick={onConfirm}

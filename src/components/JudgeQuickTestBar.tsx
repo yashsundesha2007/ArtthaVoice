@@ -9,20 +9,31 @@ import {
   PieChart,
   HelpCircle,
   CheckCircle,
+  Mic,
 } from 'lucide-react';
 
 interface JudgeQuickTestBarProps {
   onRunTest: (transcript: string, note?: string) => void;
   onResetData: () => void;
+  isPendingConfirmation?: boolean;
 }
 
 export const JudgeQuickTestBar: React.FC<JudgeQuickTestBarProps> = ({
   onRunTest,
   onResetData,
+  isPendingConfirmation = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const testCases = [
+    {
+      id: 'patrol-test',
+      label: '⛽ 500 ka patrol',
+      sublabel: 'Petrol ₹500',
+      speech: '500 ka patrol',
+      badge: 'User Scenario',
+      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    },
     {
       id: 'hindi-multi',
       label: '1. Hindi Multi-Item',
@@ -94,7 +105,7 @@ export const JudgeQuickTestBar: React.FC<JudgeQuickTestBarProps> = ({
               Judge Quick-Test Bar
             </span>
             <span className="hidden md:inline text-xs text-slate-400">
-              (One-click speech simulation &amp; noise-resilience scenarios)
+              (One-click speech simulation &amp; voice confirmation scenarios)
             </span>
           </div>
 
@@ -122,28 +133,62 @@ export const JudgeQuickTestBar: React.FC<JudgeQuickTestBarProps> = ({
         </div>
 
         {isExpanded && (
-          <div className="mt-2.5 pt-2 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
-            {testCases.map((tc) => (
-              <button
-                key={tc.id}
-                onClick={() => onRunTest(tc.speech, tc.label)}
-                className="flex flex-col text-left p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/80 hover:border-emerald-400 transition-all group"
-              >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${tc.badgeColor}`}
-                  >
-                    {tc.badge}
+          <div className="mt-2.5 pt-2 border-t border-slate-800">
+            {/* If confirmation is pending, highlight Voice Confirmation Responses */}
+            {isPendingConfirmation && (
+              <div className="mb-2.5 p-2 rounded-xl bg-emerald-950/80 border-2 border-emerald-500 flex flex-wrap items-center justify-between gap-2 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  <span className="text-xs font-extrabold text-emerald-300">
+                    Voice Response Listening (Say or 1-Click Test):
                   </span>
                 </div>
-                <div className="text-xs font-bold text-white group-hover:text-emerald-300 leading-snug">
-                  {tc.label}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onRunTest('Yes', 'Voice Confirmation')}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow transition flex items-center gap-1"
+                  >
+                    <span>✓ Say "Yes / Haan" (Save by Voice)</span>
+                  </button>
+                  <button
+                    onClick={() => onRunTest('Nooo', 'Voice Rejection / Ask to change')}
+                    className="px-3 py-1 rounded-lg bg-rose-700 hover:bg-rose-600 text-white text-xs font-black shadow transition flex items-center gap-1"
+                  >
+                    <span>✗ Say "Nooo / Nahi" (Ask what to change)</span>
+                  </button>
+                  <button
+                    onClick={() => onRunTest('400 ka petrol', 'Voice Amount Correction')}
+                    className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-black shadow transition flex items-center gap-1"
+                  >
+                    <span>✎ Say "400 ka petrol" (Voice Correct)</span>
+                  </button>
                 </div>
-                <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                  "{tc.speech}"
-                </div>
-              </button>
-            ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+              {testCases.map((tc) => (
+                <button
+                  key={tc.id}
+                  onClick={() => onRunTest(tc.speech, tc.label)}
+                  className="flex flex-col text-left p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/80 hover:border-emerald-400 transition-all group"
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${tc.badgeColor}`}
+                    >
+                      {tc.badge}
+                    </span>
+                  </div>
+                  <div className="text-xs font-bold text-white group-hover:text-emerald-300 leading-snug">
+                    {tc.label}
+                  </div>
+                  <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                    "{tc.speech}"
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

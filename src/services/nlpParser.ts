@@ -7,7 +7,7 @@ import {
   CategoryBudget,
 } from '../types';
 
-// Multilingual regional dictionary keywords
+// Multilingual regional dictionary keywords (Latin + Devanagari + Gujarati script)
 const GUJARATI_MARKERS = [
   'aaje',
   'shaak',
@@ -26,6 +26,23 @@ const GUJARATI_MARKERS = [
   'thayu',
   'ketla',
   'aapo',
+  'શાક',
+  'શાકભાજી',
+  'દૂધ',
+  'રૂપિયા',
+  'આપ્યા',
+  'આપ્યું',
+  'અને',
+  'છે',
+  'ખોટું',
+  'બરાબર',
+  'જમવાનું',
+  'નાસ્તો',
+  'રીક્ષા',
+  'ઓટો',
+  'દવા',
+  'લાઈટ',
+  'કરિયાણું',
 ];
 
 const RAJASTHANI_MARKERS = [
@@ -40,6 +57,10 @@ const RAJASTHANI_MARKERS = [
   'thaso',
   'deena',
   'kharchiyo',
+  'साग',
+  'हुकुम',
+  'रूपिया',
+  'भाड़ो',
 ];
 
 const HINDI_MARKERS = [
@@ -47,6 +68,7 @@ const HINDI_MARKERS = [
   'arre',
   'arrey',
   'sabzi',
+  'sabji',
   'aur',
   'pe',
   'ka',
@@ -67,9 +89,32 @@ const HINDI_MARKERS = [
   'doodh',
   'bijli',
   'dawa',
+  'आज',
+  'अरे',
+  'सब्जी',
+  'सब्ज़ी',
+  'और',
+  'का',
+  'की',
+  'के',
+  'पे',
+  'दिया',
+  'खर्च',
+  'रुपये',
+  'रुपया',
+  'भैया',
+  'सही',
+  'है',
+  'बताओ',
+  'खोलो',
+  'दिखाओ',
+  'सुनाओ',
+  'दूध',
+  'बिजली',
+  'दवा',
 ];
 
-// Fillers to automatically strip
+// Fillers to automatically strip (Latin + Devanagari + Gujarati)
 const FILLER_PATTERNS = [
   /\b(arre|arrey|are)\b/gi,
   /\b(umm|um|uh|uhh)\b/gi,
@@ -78,7 +123,22 @@ const FILLER_PATTERNS = [
   /\b(suno|dekho|acha|achha)\b/gi,
   /\b(bas|to|to fir)\b/gi,
   /\b(haalo)\b/gi,
+  // Devanagari fillers
+  /(अरे|अर्रे|उम्म|हाँ\s*भाई|भैया|यार|मतलब|सुनो|देखो|अच्छा|बस|तो)/gi,
+  // Gujarati fillers
+  /(હાલો|અરે|ભઈ|જોવો|બસ)/gi,
 ];
+
+// Devanagari and Gujarati numerals conversion maps
+const DEVANAGARI_DIGITS: Record<string, string> = {
+  '०': '0', '१': '1', '२': '2', '३': '3', '४': '4',
+  '५': '5', '६': '6', '७': '7', '८': '8', '९': '9',
+};
+
+const GUJARATI_DIGITS: Record<string, string> = {
+  '૦': '0', '૧': '1', '૨': '2', '૩': '3', '૪': '4',
+  '૫': '5', '૬': '6', '૭': '7', '૮': '8', '૯': '9',
+};
 
 // Indian Number word dictionary for parsing spoken numbers
 const INDIAN_NUMBER_WORDS: Record<string, number> = {
@@ -125,6 +185,36 @@ const INDIAN_NUMBER_WORDS: Record<string, number> = {
   assi: 80,
   nabbe: 90,
 
+  // Devanagari words
+  सौ: 100,
+  'डेढ़ सौ': 150,
+  'दो सौ': 200,
+  'ढाई सौ': 250,
+  'तीन सौ': 300,
+  'पांच सौ': 500,
+  हजार: 1000,
+  हज़ार: 1000,
+  एक: 1,
+  दो: 2,
+  तीन: 3,
+  चार: 4,
+  पांच: 5,
+  पाँच: 5,
+  छह: 6,
+  सात: 7,
+  आठ: 8,
+  नौ: 9,
+  दस: 10,
+  बीस: 20,
+  पच्चीस: 25,
+  तीस: 30,
+  चालीस: 40,
+  पचास: 50,
+  साठ: 60,
+  सत्तर: 70,
+  अस्सी: 80,
+  नब्बे: 90,
+
   // Gujarati / Regional
   'be so': 200,
   'be sau': 200,
@@ -137,13 +227,26 @@ const INDIAN_NUMBER_WORDS: Record<string, number> = {
   sitter: 70,
   ensi: 80,
   nevvo: 90,
+  સો: 100,
+  'દોઢ સો': 150,
+  'બે સો': 200,
+  વીસ: 20,
+  ત્રીસ: 30,
+  ચાલીસ: 40,
+  પચાસ: 50,
+  સાઠ: 60,
+  સીંતેર: 70,
+  એંસી: 80,
+  નેવું: 90,
 };
 
-// Item to Category classification mappings
+// Item to Category classification mappings (Latin, Devanagari, Gujarati, & common phonetic typos)
 const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   // Food
   sabzi: 'Food',
   sabji: 'Food',
+  subzi: 'Food',
+  subji: 'Food',
   saag: 'Food',
   shaak: 'Food',
   shaakbhaaji: 'Food',
@@ -152,6 +255,7 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   tarkari: 'Food',
   doodh: 'Food',
   dudh: 'Food',
+  dhoodh: 'Food',
   milk: 'Food',
   khana: 'Food',
   jamvanu: 'Food',
@@ -172,9 +276,31 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   fruits: 'Food',
   phal: 'Food',
   juice: 'Food',
+  सब्जी: 'Food',
+  सब्ज़ी: 'Food',
+  भाजी: 'Food',
+  शाक: 'Food',
+  शाकभाजी: 'Food',
+  साग: 'Food',
+  दूध: 'Food',
+  खाना: 'Food',
+  रोटी: 'Food',
+  चाय: 'Food',
+  नाश्ता: 'Food',
+  मिठाई: 'Food',
+  पनीर: 'Food',
+  दही: 'Food',
+  फल: 'Food',
+  શાક: 'Food',
+  શાકભાજી: 'Food',
+  દૂધ: 'Food',
+  જમવાનું: 'Food',
+  ચા: 'Food',
+  નાસ્તો: 'Food',
 
   // Transport
   auto: 'Transport',
+  otto: 'Transport',
   riksha: 'Transport',
   rikshaw: 'Transport',
   rickshaw: 'Transport',
@@ -188,9 +314,21 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   bhadu: 'Transport',
   bhaado: 'Transport',
   petrol: 'Transport',
+  patrol: 'Transport',
+  pitrol: 'Transport',
   diesel: 'Transport',
   fuel: 'Transport',
   scooter: 'Transport',
+  ऑटो: 'Transport',
+  रिक्शा: 'Transport',
+  टैक्सी: 'Transport',
+  पेट्रोल: 'Transport',
+  पैट्रोल: 'Transport',
+  डीजल: 'Transport',
+  भाड़ा: 'Transport',
+  રીક્ષા: 'Transport',
+  ઓટો: 'Transport',
+  ભાડું: 'Transport',
 
   // Medical
   dawa: 'Medical',
@@ -209,9 +347,18 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   medical: 'Medical',
   chemist: 'Medical',
   injection: 'Medical',
+  दवा: 'Medical',
+  दवाई: 'Medical',
+  गोली: 'Medical',
+  डॉक्टर: 'Medical',
+  अस्पताल: 'Medical',
+  દવા: 'Medical',
+  દવાઓ: 'Medical',
+  ડોક્ટર: 'Medical',
 
   // Bills
   bijli: 'Bills',
+  bijlee: 'Bills',
   light: 'Bills',
   electricity: 'Bills',
   power: 'Bills',
@@ -227,6 +374,19 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   rent: 'Bills',
   kiraya: 'Bills',
   dth: 'Bills',
+  बिजली: 'Bills',
+  लाइट: 'Bills',
+  बिल: 'Bills',
+  सिलेंडर: 'Bills',
+  गैस: 'Bills',
+  रिचार्ज: 'Bills',
+  मोबाइल: 'Bills',
+  किराया: 'Bills',
+  લાઈટ: 'Bills',
+  'લાઈટ બિલ': 'Bills',
+  વીજળી: 'Bills',
+  ગેસ: 'Bills',
+  રીચાર્જ: 'Bills',
 
   // Groceries
   kirana: 'Groceries',
@@ -245,6 +405,17 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   rice: 'Groceries',
   soap: 'Groceries',
   surf: 'Groceries',
+  किराना: 'Groceries',
+  राशन: 'Groceries',
+  आटा: 'Groceries',
+  दाल: 'Groceries',
+  तेल: 'Groceries',
+  चावल: 'Groceries',
+  करियाणूं: 'Groceries',
+  રાશન: 'Groceries',
+  લોટ: 'Groceries',
+  તેલ: 'Groceries',
+  દાળ: 'Groceries',
 
   // Other
   kapde: 'Other',
@@ -254,9 +425,28 @@ const CATEGORY_MAP: Record<string, ExpenseCategory> = {
   pooja: 'Other',
   mandir: 'Other',
   repair: 'Other',
+  कपड़े: 'Other',
+  कपड़ा: 'Other',
+  पूजा: 'Other',
+  मंदिर: 'Other',
+  કપડાં: 'Other',
 };
 
 export class MultilingualNLPParser {
+  /**
+   * Convert native Devanagari and Gujarati digits (e.g. १२०, ૧૨૦) to standard digits (120)
+   */
+  public normalizeNativeDigits(text: string): string {
+    let result = text;
+    for (const [dev, lat] of Object.entries(DEVANAGARI_DIGITS)) {
+      result = result.replace(new RegExp(dev, 'g'), lat);
+    }
+    for (const [guj, lat] of Object.entries(GUJARATI_DIGITS)) {
+      result = result.replace(new RegExp(guj, 'g'), lat);
+    }
+    return result;
+  }
+
   /**
    * Zero Manual Language Toggle: detects whether user is speaking
    * Hindi, Hinglish, Gujarati, Rajasthani, or Indian English
@@ -266,47 +456,57 @@ export class MultilingualNLPParser {
   ): 'Hindi' | 'Hinglish' | 'Gujarati' | 'Rajasthani' | 'English' {
     const lower = text.toLowerCase();
 
+    // Check Gujarati markers & script
     let gujaratiScore = 0;
     for (const marker of GUJARATI_MARKERS) {
-      if (new RegExp(`\\b${marker}\\b`, 'i').test(lower)) {
+      if (new RegExp(`\\b${marker}\\b|${marker}`, 'i').test(lower)) {
         gujaratiScore += 2;
       }
     }
 
+    // Check Rajasthani markers
     let rajasthaniScore = 0;
     for (const marker of RAJASTHANI_MARKERS) {
-      if (new RegExp(`\\b${marker}\\b`, 'i').test(lower)) {
+      if (new RegExp(`\\b${marker}\\b|${marker}`, 'i').test(lower)) {
         rajasthaniScore += 2;
       }
     }
 
+    // Check Hindi markers
     let hindiScore = 0;
     for (const marker of HINDI_MARKERS) {
-      if (new RegExp(`\\b${marker}\\b`, 'i').test(lower)) {
+      if (new RegExp(`\\b${marker}\\b|${marker}`, 'i').test(lower)) {
         hindiScore++;
       }
     }
 
+    // Check English words
     let englishScore = 0;
-    const englishWords = ['expense', 'spent', 'report', 'history', 'budget', 'save', 'today', 'milk', 'electricity', 'bill'];
+    const englishWords = [
+      'expense', 'spent', 'report', 'history', 'budget', 'save', 'today',
+      'milk', 'electricity', 'bill', 'vegetables', 'medicine', 'auto'
+    ];
     for (const word of englishWords) {
       if (new RegExp(`\\b${word}\\b`, 'i').test(lower)) {
         englishScore++;
       }
     }
 
-    if (gujaratiScore > 0 && gujaratiScore >= rajasthaniScore && gujaratiScore >= hindiScore) return 'Gujarati';
-    if (rajasthaniScore > 0 && rajasthaniScore > gujaratiScore && rajasthaniScore >= hindiScore) return 'Rajasthani';
+    if (gujaratiScore > 0 && gujaratiScore >= rajasthaniScore && gujaratiScore >= hindiScore) {
+      return 'Gujarati';
+    }
+    if (rajasthaniScore > 0 && rajasthaniScore > gujaratiScore && rajasthaniScore >= hindiScore) {
+      return 'Rajasthani';
+    }
     if (hindiScore > 0 && englishScore > 0) return 'Hinglish';
     if (hindiScore > 0) return 'Hindi';
     if (englishScore > 0) return 'English';
 
-    return 'Hindi'; // default friendly Indian voice
+    return 'Hindi';
   }
 
   /**
    * Smart Filler & Disfluency Cleanup
-   * Extracts stripped filler tokens so the UI can highlight what was cleaned
    */
   public cleanFillers(text: string): { cleaned: string; removed: string[] } {
     let cleaned = text;
@@ -316,22 +516,21 @@ export class MultilingualNLPParser {
       const matches = cleaned.match(pattern);
       if (matches) {
         matches.forEach((m) => {
-          if (!removed.includes(m.trim().toLowerCase())) {
-            removed.push(m.trim().toLowerCase());
+          const val = m.trim().toLowerCase();
+          if (!removed.includes(val)) {
+            removed.push(val);
           }
         });
         cleaned = cleaned.replace(pattern, ' ');
       }
     }
 
-    // Tidy extra spaces
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
     return { cleaned, removed };
   }
 
   /**
    * Mid-Sentence Self-Correction Resolver
-   * Handles patterns like "120... nahi nahi 150", "120 nahi 150", "sau nahi dedh sau"
    */
   public resolveMidSentenceCorrections(text: string): {
     resolvedText: string;
@@ -340,9 +539,9 @@ export class MultilingualNLPParser {
     const corrections: { from: number; to: number; phrase: string }[] = [];
     let resolvedText = text;
 
-    // Pattern: (\d+)\s*(?:\.{2,}|\,)?\s*(?:nahi\s+nahi|nahi\s+re|nahi|galat|khota|no|not)\s*(\d+)
+    // Pattern: (\d+)\s*(?:\.{2,}|\,)?\s*(?:nahi\s+nahi|nahi\s+re|nahi|नहीं\s*नहीं|नहीं|ना|galat|गलत|no)\s*(\d+)
     const correctionRegex =
-      /(\d+)\s*(?:\.{2,}|\,)?\s*(?:nahi\s+nahi|nahi\s+re|nahi|na\s+na|galat|khota|no|not)\s*(\d+)/gi;
+      /(\d+)\s*(?:\.{2,}|\,)?\s*(?:nahi\s+nahi|nahi\s+re|nahi|na\s+na|नहीं\s*नहीं|नहीं|ना|galat|गलत|khota|खोतुं|no|not)\s*(\d+)/gi;
 
     let match;
     while ((match = correctionRegex.exec(text)) !== null) {
@@ -353,14 +552,8 @@ export class MultilingualNLPParser {
         to: toVal,
         phrase: match[0],
       });
-      // Replace the correction phrase with just the target number
       resolvedText = resolvedText.replace(match[0], match[2]);
     }
-
-    // Word-based corrections e.g., "120... nahi 150 sabzi ka"
-    const wordPattern =
-      /(?:ek|sau|dedh sau|do sau|\d+)\s*(?:\.{2,}|\,)?\s*(?:nahi\s+nahi|nahi\s+re|nahi)\s*(\d+)/gi;
-    resolvedText = resolvedText.replace(wordPattern, '$1');
 
     return { resolvedText, corrections };
   }
@@ -369,16 +562,16 @@ export class MultilingualNLPParser {
    * Convert number words or symbols to digits
    */
   private normalizeNumbers(text: string): string {
-    let result = text;
+    let result = this.normalizeNativeDigits(text);
     for (const [word, num] of Object.entries(INDIAN_NUMBER_WORDS)) {
-      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      const regex = new RegExp(`\\b${word}\\b|${word}`, 'gi');
       result = result.replace(regex, num.toString());
     }
     return result;
   }
 
   /**
-   * Detect User Intent (expense log, confirmation, correction, query, navigation)
+   * Detect User Intent
    */
   public detectIntent(
     text: string,
@@ -386,97 +579,72 @@ export class MultilingualNLPParser {
   ): VoiceIntent {
     const lower = text.toLowerCase();
 
-    // If confirmation is pending, check yes/no first
     if (pendingConfirmation) {
       const confirmWords = [
-        'haan',
-        'ha',
-        'yes',
-        'save',
-        'sahi',
-        'sahi hai',
-        'barobar',
-        'barobar chhe',
-        'theek hai',
-        'thik hai',
-        'kar do',
-        'hukum',
-        'okay',
-        'ok',
+        'haan', 'ha', 'yes', 'save', 'sahi', 'sahi hai', 'barobar', 'barobar chhe',
+        'theek hai', 'thik hai', 'kar do', 'hukum', 'okay', 'ok', 'yep', 'yup', 'sure', 'done',
+        'हाँ', 'हा', 'सही', 'सही है', 'ठीक है', 'सेव', 'હા', 'બરાબર'
       ];
       for (const w of confirmWords) {
-        if (new RegExp(`\\b${w}\\b`, 'i').test(lower)) {
+        if (new RegExp(`\\b${w}\\b|${w}`, 'i').test(lower)) {
           return 'confirmation';
         }
       }
 
       const rejectWords = [
-        'nahi',
-        'na',
-        'no',
-        'galat',
-        'khota',
-        'badlo',
-        'ruko',
-        'change',
-        'tha',
+        'nahi', 'na', 'no', 'nooo', 'noo', 'galat', 'khota', 'badlo', 'ruko', 'change', 'tha', 'wrong', 'nope',
+        'नहीं', 'ना', 'गलत', 'खोता', 'बदलो', 'ના', 'ખોટું'
       ];
       for (const w of rejectWords) {
-        if (new RegExp(`\\b${w}\\b`, 'i').test(lower)) {
+        if (new RegExp(`\\b${w}\\b|${w}`, 'i').test(lower)) {
           return 'rejection_or_correction';
         }
       }
     }
 
-    // Check Navigation intents
+    // Navigation intents
     if (
-      /budget\s*(kholo|dikhao|batao|open|dekhna)/i.test(lower) ||
+      /budget\s*(kholo|dikhao|batao|open|dekhna)|बजट|બજેટ/i.test(lower) ||
       /budget\s*pe\s*jao/i.test(lower)
     ) {
       return 'navigation';
     }
 
     if (
-      /(history|itihaas|purana|kharch)\s*(kholo|dikhao|batao|list|open)/i.test(lower) ||
+      /(history|itihaas|purana|kharch)\s*(kholo|dikhao|batao|list|open)|इतिहास|હિસ્ટ્રી/i.test(lower) ||
       /sab\s*kharch\s*dikhao/i.test(lower)
     ) {
       return 'navigation';
     }
 
     if (
-      /(report|chart|graphs?)\s*(dikhao|kholo|suna|suna do|batao|open)/i.test(lower) ||
-      /report\s*suna\s*do/i.test(lower)
+      /(report|chart|graphs?)\s*(dikhao|kholo|suna|suna do|batao|open)|रिपोर्ट|ચાર્ટ/i.test(lower) ||
+      /report\s*suna\s*do|रिपोर्ट\s*सुनाओ/i.test(lower)
     ) {
       return 'read_report';
     }
 
-    if (
-      /(home|ghar|naya\s*kharch|mic|dashboard)/i.test(lower)
-    ) {
+    if (/(home|ghar|naya\s*kharch|mic|dashboard|घर)/i.test(lower)) {
       return 'navigation';
     }
 
-    // Check Financial Queries
+    // Financial queries
     if (
-      /kitna\s*kharch\s*hua/i.test(lower) ||
-      /kitna\s*bacha/i.test(lower) ||
-      /last\s*\d*\s*expenses?/i.test(lower) ||
-      /pichle\s*kharch/i.test(lower) ||
-      /budget\s*kitna\s*bacha/i.test(lower) ||
-      /is\s*hafte/i.test(lower) ||
-      /aaj\s*kitna/i.test(lower) ||
-      /kisme\s*sabse\s*jyada/i.test(lower) ||
-      /highest\s*spending/i.test(lower)
+      /kitna\s*kharch\s*hua|kitna\s*bacha|कितना\s*खर्च|કેટલો\s*ખર્ચ/i.test(lower) ||
+      /last\s*\d*\s*expenses?|pichle\s*kharch|पिछला\s*खर्च/i.test(lower) ||
+      /budget\s*kitna\s*bacha|बजट\s*कितना/i.test(lower) ||
+      /is\s*hafte|इस\s*हफ्ते|aaj\s*kitna|आज\s*कितना/i.test(lower) ||
+      /kisme\s*sabse\s*jyada|highest\s*spending|सबसे\s*ज्यादा/i.test(lower)
     ) {
       return 'financial_query';
     }
 
-    // Check single modification like "Nahi, sabzi 150 tha"
-    if (/nahi|galat|tha|karo/i.test(lower) && /\d+/.test(lower)) {
+    // Rejection with number: "Nahi sabzi 150 tha"
+    if ((/nahi|galat|tha|नहीं|गलत/i.test(lower) && /\d+/.test(lower)) || (pendingConfirmation && /\d+/.test(lower))) {
       return 'rejection_or_correction';
     }
 
-    // If it contains a number and item, it's an expense log
+    // Expense log
     if (/\d+/.test(this.normalizeNumbers(lower))) {
       return 'expense_log';
     }
@@ -486,48 +654,43 @@ export class MultilingualNLPParser {
 
   /**
    * Multi-Item Voice Expense Parser
-   * Parses clauses like:
-   * "aaj sabzi pe 120 aur auto ka 60 diya"
-   * "Aaje shaak na 120 ane auto na 60 aapya"
-   * "Aaj saag ra 120 ar auto ra 60 diya"
    */
   public parseExpenseItems(text: string): ParsedExpenseItem[] {
     const normalized = this.normalizeNumbers(text.toLowerCase());
     const items: ParsedExpenseItem[] = [];
 
-    // Split on conjunctions: aur, ane, ar, tatha, and, comma, plus
-    const clauses = normalized.split(/\b(?:aur|ane|ar|tatha|and|\,)\b/gi);
+    // Split on conjunctions: aur, ane, ar, tatha, and, और, तथा, अने, comma
+    const clauses = normalized.split(/\b(?:aur|ane|ar|tatha|and|\,)\b|और|तथा|अने|અને|\,/gi);
 
     for (const clause of clauses) {
       const trimmed = clause.trim();
       if (!trimmed) continue;
 
-      // Extract amount (\d+)
       const amountMatch = trimmed.match(/(\d+(?:\.\d{1,2})?)/);
       if (!amountMatch) continue;
 
       const amount = parseFloat(amountMatch[1]);
       if (isNaN(amount) || amount <= 0) continue;
 
-      // Identify category & item name
       let detectedCategory: ExpenseCategory = 'Other';
       let itemName = '';
 
       for (const [word, cat] of Object.entries(CATEGORY_MAP)) {
-        if (new RegExp(`\\b${word}\\b`, 'i').test(trimmed)) {
+        if (new RegExp(`\\b${word}\\b|${word}`, 'i').test(trimmed)) {
           detectedCategory = cat;
-          // Capitalize friendly label
-          if (word === 'sabzi' || word === 'saag' || word === 'shaak' || word === 'shaakbhaaji') {
+          if (['sabzi', 'sabji', 'subzi', 'saag', 'shaak', 'सब्जी', 'सब्ज़ी', 'शाक'].includes(word)) {
             itemName = 'Sabzi (Vegetables)';
-          } else if (word === 'auto' || word === 'riksha' || word === 'rikshaw' || word === 'autorickshaw') {
+          } else if (['auto', 'otto', 'riksha', 'rikshaw', 'rickshaw', 'ऑटो', 'રીક્ષા'].includes(word)) {
             itemName = 'Auto Rickshaw';
-          } else if (word === 'doodh' || word === 'dudh' || word === 'milk') {
+          } else if (['petrol', 'patrol', 'pitrol', 'पेट्रोल', 'पैट्रोल'].includes(word)) {
+            itemName = 'Petrol';
+          } else if (['doodh', 'dudh', 'milk', 'दूध', 'દૂધ'].includes(word)) {
             itemName = 'Taza Doodh (Milk)';
-          } else if (word === 'dawa' || word === 'dawai' || word === 'dava' || word === 'medicine') {
+          } else if (['dawa', 'dawai', 'dava', 'medicine', 'दवा', 'दवाई', 'દવા'].includes(word)) {
             itemName = 'Dawa (Medicine)';
-          } else if (word === 'bijli' || word === 'light' || word === 'electricity') {
+          } else if (['bijli', 'bijlee', 'light', 'electricity', 'बिजली', 'લાઈટ'].includes(word)) {
             itemName = 'Bijli Bill';
-          } else if (word === 'kirana' || word === 'rashan') {
+          } else if (['kirana', 'rashan', 'ration', 'किराना', 'राशन', 'કરિયાણું'].includes(word)) {
             itemName = 'Kirana Ration';
           } else {
             itemName = word.charAt(0).toUpperCase() + word.slice(1);
@@ -536,11 +699,10 @@ export class MultilingualNLPParser {
         }
       }
 
-      // If no dictionary keyword matched, try extracting neighboring word
       if (!itemName) {
         const words = trimmed
           .replace(/(\d+)/g, '')
-          .replace(/\b(pe|ka|ki|ke|ko|na|nu|ne|ra|ro|re|aaj|aaje|diya|aapya|aapyu|kharch|hua|rupaye|rupya|roopya)\b/gi, '')
+          .replace(/\b(pe|ka|ki|ke|ko|na|nu|ne|ra|ro|re|aaj|aaje|diya|aapya|aapyu|kharch|hua|rupaye|rupya|roopya|का|की|के|पे|दिया|रुपये|रुपया)\b/gi, '')
           .trim()
           .split(/\s+/);
         itemName = words[0] ? words[0].charAt(0).toUpperCase() + words[0].slice(1) : 'Expense';
@@ -559,7 +721,7 @@ export class MultilingualNLPParser {
   }
 
   /**
-   * Process Financial Queries against app state (transactions + budgets)
+   * Process Financial Queries
    */
   public answerFinancialQuery(
     text: string,
@@ -574,8 +736,7 @@ export class MultilingualNLPParser {
   } {
     const lower = text.toLowerCase();
 
-    // Query 1: "Food budget kitna bacha hai?"
-    if (/food|khana|sabzi/i.test(lower) && /budget|bacha/i.test(lower)) {
+    if (/food|khana|sabzi|खाना|सब्जी/i.test(lower) && /budget|bacha|बजट|बचा/i.test(lower)) {
       const foodBudget = budgets.find((b) => b.category === 'Food');
       const limit = foodBudget ? foodBudget.limit : 4000;
       const spent = foodBudget ? foodBudget.spent : 3100;
@@ -590,8 +751,7 @@ export class MultilingualNLPParser {
       };
     }
 
-    // Query 2: "Is hafte kitna kharch hua?"
-    if (/hafte|week|kitna\s*kharch\s*hua/i.test(lower)) {
+    if (/hafte|week|kitna\s*kharch\s*hua|हफ्ते|खर्च/i.test(lower)) {
       const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const weekTotal = transactions
         .filter((t) => t.timestamp >= oneWeekAgo)
@@ -605,8 +765,7 @@ export class MultilingualNLPParser {
       };
     }
 
-    // Query 3: "Last 5 expenses batao" or "Pichle kharch batao"
-    if (/last|pichle|pichhla/i.test(lower) || /recent/i.test(lower)) {
+    if (/last|pichle|pichhla|recent|पिछला/i.test(lower)) {
       const last5 = transactions.slice(0, 5);
       const itemsList = last5.map((t) => `${t.description} ${t.amount} rupaye`).join(', ');
 
@@ -617,22 +776,6 @@ export class MultilingualNLPParser {
       };
     }
 
-    // Query 4: "Highest spending kisme hui?" / "Sabse jyada kharch"
-    if (/highest|sabse\s*jyada|jyada\s*kharch/i.test(lower)) {
-      // Find category with highest spent
-      const sorted = [...budgets].sort((a, b) => b.spent - a.spent);
-      const top = sorted[0];
-
-      return {
-        summary: `Sabse jyada kharch: ${top.category} (₹${top.spent.toLocaleString('en-IN')})`,
-        voiceResponse: `Sabse jyada kharch ${top.category} mein hua hai, kul ${top.spent} rupaye.`,
-        highlightTab: 'reports',
-        category: top.category,
-        amount: top.spent,
-      };
-    }
-
-    // Default general query answer
     const totalSpent = budgets.reduce((acc, b) => acc + b.spent, 0);
     return {
       summary: `Kul kharch: ₹${totalSpent.toLocaleString('en-IN')}`,
@@ -656,15 +799,12 @@ export class MultilingualNLPParser {
     const rawTranscript = rawSpeech.trim();
     const detectedLanguage = this.detectLanguage(rawTranscript);
 
-    // 1. Strip fillers
     const { cleaned: fillerCleaned, removed: fillersRemoved } =
       this.cleanFillers(rawTranscript);
 
-    // 2. Resolve mid-sentence self-corrections
     const { resolvedText, corrections: midSentenceCorrections } =
       this.resolveMidSentenceCorrections(fillerCleaned);
 
-    // 3. Determine Intent
     const intent = this.detectIntent(resolvedText, options.pendingConfirmation);
 
     const result: ParsedVoiceResult = {
@@ -677,18 +817,16 @@ export class MultilingualNLPParser {
       midSentenceCorrections,
     };
 
-    // 4. Handle navigation intents
     if (intent === 'navigation') {
       const lower = resolvedText.toLowerCase();
-      if (/budget/i.test(lower)) result.navigationTarget = 'budgets';
-      else if (/history|kharch/i.test(lower)) result.navigationTarget = 'history';
-      else if (/report|chart/i.test(lower)) result.navigationTarget = 'reports';
+      if (/budget|बजट/i.test(lower)) result.navigationTarget = 'budgets';
+      else if (/history|kharch|इतिहास/i.test(lower)) result.navigationTarget = 'history';
+      else if (/report|chart|रिपोर्ट/i.test(lower)) result.navigationTarget = 'reports';
       else result.navigationTarget = 'home';
     } else if (intent === 'read_report') {
       result.navigationTarget = 'reports';
     }
 
-    // 5. Handle financial queries
     if (intent === 'financial_query' && options.transactions && options.budgets) {
       result.queryAnswer = this.answerFinancialQuery(
         resolvedText,
@@ -697,7 +835,6 @@ export class MultilingualNLPParser {
       );
     }
 
-    // 6. Handle expense logging or correction
     if (intent === 'expense_log' || intent === 'rejection_or_correction') {
       result.items = this.parseExpenseItems(resolvedText);
     }

@@ -39,6 +39,7 @@ export const App: React.FC = () => {
   const [audioLevel, setAudioLevel] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [detectedLanguage, setDetectedLanguage] = useState('Hindi');
+  const [selectedSpeechLang, setSelectedSpeechLang] = useState('hi-IN');
   const [fillersRemoved, setFillersRemoved] = useState<string[]>([]);
   const [pendingConfirmation, setPendingConfirmation] = useState<ParsedVoiceResult | null>(null);
   const [activeBudgetWarning, setActiveBudgetWarning] = useState<CategoryBudget | null>(null);
@@ -57,6 +58,9 @@ export const App: React.FC = () => {
   const pendingConfirmationRef = useRef<ParsedVoiceResult | null>(null);
   pendingConfirmationRef.current = pendingConfirmation;
 
+  const currentTranscriptRef = useRef<string>('');
+  const silenceTimeoutRef = useRef<any>(null);
+
   // Initialize Web Audio pipeline on first mount
   useEffect(() => {
     speechService.onVolumeChange((vol, isVoice) => {
@@ -66,6 +70,7 @@ export const App: React.FC = () => {
 
     return () => {
       speechService.cleanup();
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
     };
   }, []);
 
@@ -98,17 +103,15 @@ export const App: React.FC = () => {
 
       const percent = (b.spent / b.limit) * 100;
       if (percent >= 100) {
-        // Critical 100%+ Exceeded Alert
         setActiveBudgetWarning(b);
         speechService.playAlertChime();
         if (!isMuted) {
           speechService.speak(
-            `Chetavni! Aapka ${b.category} budget poora ho chuka hai. Yeh seema se ${b.spent - b.limit} rupaye jyada kharch ho gaya hai.`
+            `Chetavni! Aapka ${b.category} budget poora ho chuka hai.`
           );
         }
         break;
       } else if (percent >= 80) {
-        // Amber 80% Warning Threshold
         setActiveBudgetWarning(b);
         speechService.playAlertChime();
         if (!isMuted) {
@@ -136,10 +139,8 @@ export const App: React.FC = () => {
       confidence: 0.99,
     }));
 
-    // Update Transactions state
     setTransactions((prev) => [...newTxList, ...prev]);
 
-    // Update Category Budgets
     const affectedCategories: ExpenseCategory[] = [];
     const updatedBudgets = budgets.map((b) => {
       const addedForCategory = parsedResult.items
@@ -158,13 +159,11 @@ export const App: React.FC = () => {
 
     setBudgets(updatedBudgets);
 
-    // Audio & Visual positive feedback
     speechService.playSuccessChime();
     if (!isMuted) {
       speechService.speak('Save ho gaya.');
     }
 
-    // Elder-friendly celebration
     try {
       confetti({
         particleCount: 70,
@@ -175,12 +174,13 @@ export const App: React.FC = () => {
       // Confetti fallback
     }
 
-    // Reset confirmation
+    // Stop listening after successful voice commit
+    stopListeningSession();
     setPendingConfirmation(null);
     setVoiceState('idle');
     setLiveTranscript('');
+    currentTranscriptRef.current = '';
 
-    // Proactive budget threshold alert check!
     setTimeout(() => {
       checkBudgetThresholds(updatedBudgets, affectedCategories);
     }, 600);
@@ -188,6 +188,7 @@ export const App: React.FC = () => {
 
   // Process incoming speech text through the NLP and Intent pipeline
   const processTranscript = (rawText: string) => {
+    if (!rawText.trim()) return;
     setLiveTranscript(rawText);
 
     const pending = pendingConfirmationRef.current;
@@ -200,16 +201,15 @@ export const App: React.FC = () => {
     setDetectedLanguage(result.detectedLanguage);
     setFillersRemoved(result.fillersRemoved);
 
-    // Case 1: Pending confirmation exists and user said "Haan / Save / Sahi Hai"
+    // Case 1: Pending confirmation exists and user said "Haan / Save / Sahi Hai" (Voice Commit)
     if (pending && result.intent === 'confirmation') {
       handleCommitConfirmedExpenses(pending);
       return;
     }
 
-    // Case 2: Pending confirmation exists and user corrected an amount aloud
+    // Case 2: Pending confirmation exists and user corrected an amount aloud or said No
     if (pending && result.intent === 'rejection_or_correction') {
       if (result.items.length > 0) {
-        // Replace or update item amount
         const updatedItems = pending.items.map((existing) => {
           const match = result.items.find(
             (r) => r.category === existing.category || r.item === existing.item
@@ -233,31 +233,46 @@ export const App: React.FC = () => {
 
         setPendingConfirmation(updatedResult);
 
-        // Aloud re-confirmation as required in prompt!
-        const confirmationSpeech = `Theek hai, ${updatedItems
-          .map((i) => `${i.item} ${i.amount} rupaye`)
-          .join('. ')}. Sahi hai?`;
+        // Assistant repeats updated amount concisely: "[new text], sahi hai?"
+        const spokenPhrase = result.cleanedTranscript || `${updatedItems[0].amount} ka ${updatedItems[0].item}`;
+        const confirmationSpeech = `${spokenPhrase}, sahi hai?`;
 
         setVoiceState('confirming');
         if (!isMuted) {
           speechService.speak(confirmationSpeech, () => {
-            if (isHandsFree) {
+            setTimeout(() => {
               startListeningSession();
-            }
+            }, 350);
           });
+        } else {
+          setTimeout(() => {
+            startListeningSession();
+          }, 350);
         }
         return;
       } else {
-        // User simply canceled
-        setPendingConfirmation(null);
-        setVoiceState('idle');
-        if (!isMuted) speechService.speak('Theek hai, cancel kar diya gaya hai.');
+        // User said "No" / "Nooo" / "Nahi" without a new amount yet -> Ask user what to change!
+        const askSpeech = 'Kya badalna hai? Dobara bolein.';
+        setVoiceState('confirming');
+        if (!isMuted) {
+          speechService.speak(askSpeech, () => {
+            // AUTOMATICALLY listen for what the user wants to change!
+            setTimeout(() => {
+              startListeningSession();
+            }, 350);
+          });
+        } else {
+          setTimeout(() => {
+            startListeningSession();
+          }, 350);
+        }
         return;
       }
     }
 
     // Case 3: Hands-Free Voice Navigation Command
     if (result.intent === 'navigation' && result.navigationTarget) {
+      stopListeningSession();
       setActiveTab(result.navigationTarget);
       speechService.playSuccessChime();
       if (!isMuted) {
@@ -269,6 +284,7 @@ export const App: React.FC = () => {
 
     // Case 4: "Report dikhao aur suna do"
     if (result.intent === 'read_report') {
+      stopListeningSession();
       setActiveTab('reports');
       setAutoStartReportNarration(true);
       setVoiceState('idle');
@@ -277,10 +293,8 @@ export const App: React.FC = () => {
 
     // Case 5: Conversational Financial Query
     if (result.intent === 'financial_query' && result.queryAnswer) {
+      stopListeningSession();
       setQueryAnswer(result.queryAnswer);
-      if (result.queryAnswer.highlightTab) {
-        // Optional quick switch or keep on home with query card
-      }
       speechService.playSuccessChime();
       if (!isMuted) {
         speechService.speak(result.queryAnswer.voiceResponse);
@@ -289,40 +303,54 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Case 6: Multi-Item Voice Expense Logging
+    // Case 6: Multi-Item Voice Expense Logging (e.g. "500 ka patrol, sahi hai?")
     if (result.items.length > 0) {
       setPendingConfirmation(result);
       setVoiceState('confirming');
 
-      // Aloud read-back as required in prompt: "Sabzi, 120 rupaye. Auto, 60 rupaye. Sahi hai?"
-      const confirmationSpeech = `${result.items
-        .map((i) => `${i.item}, ${i.amount} rupaye`)
-        .join('. ')}. Sahi hai?`;
+      // Short & concise confirmation: "[User's text], sahi hai?"
+      const userSpokenText = result.cleanedTranscript || result.rawTranscript;
+      const confirmationSpeech = `${userSpokenText}, sahi hai?`;
 
       if (!isMuted) {
         speechService.speak(confirmationSpeech, () => {
-          // Immediately listen for voice response "Haan" / "Nahi"
-          if (isHandsFree) {
-            setTimeout(() => {
-              startListeningSession();
-            }, 300);
-          }
+          // AUTOMATICALLY open the microphone so user can say "Yes" / "Haan" to save, or "No" to change!
+          setTimeout(() => {
+            startListeningSession();
+          }, 350);
         });
+      } else {
+        setTimeout(() => {
+          startListeningSession();
+        }, 350);
       }
     }
   };
 
-  // Start continuous / single-shot speech session
+  // Start continuous speech session
   const startListeningSession = async () => {
     await speechService.initAudioPipeline();
     setIsListening(true);
     setVoiceState('listening');
+    currentTranscriptRef.current = '';
 
     speechService.startListening(
       (transcript, isFinal) => {
+        currentTranscriptRef.current = transcript;
         setLiveTranscript(transcript);
+
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+        }
+
         if (isFinal) {
           processTranscript(transcript);
+        } else {
+          silenceTimeoutRef.current = setTimeout(() => {
+            if (currentTranscriptRef.current.trim() && isListening) {
+              processTranscript(currentTranscriptRef.current);
+            }
+          }, 1400);
         }
       },
       (err) => {
@@ -332,8 +360,12 @@ export const App: React.FC = () => {
       },
       () => {
         setIsListening(false);
-        if (isHandsFree && !pendingConfirmationRef.current) {
-          // Restart hands-free loop after short delay
+        // If confirmation is still waiting for voice reply ("Haan"), restart listening automatically
+        if (pendingConfirmationRef.current && !isListening) {
+          setTimeout(() => {
+            if (pendingConfirmationRef.current) startListeningSession();
+          }, 600);
+        } else if (isHandsFree && !pendingConfirmationRef.current) {
           setTimeout(() => {
             if (isHandsFree) startListeningSession();
           }, 800);
@@ -347,6 +379,13 @@ export const App: React.FC = () => {
     speechService.stopListening();
     setIsListening(false);
     setVoiceState('idle');
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+
+    if (currentTranscriptRef.current.trim() && !pendingConfirmationRef.current) {
+      processTranscript(currentTranscriptRef.current);
+    }
   };
 
   const handleToggleListening = () => {
@@ -357,8 +396,22 @@ export const App: React.FC = () => {
     }
   };
 
-  // Preset quick tests for Judge demonstration
+  const handleSpeechLangChange = (lang: string) => {
+    setSelectedSpeechLang(lang);
+    speechService.setLanguage(lang);
+    if (isListening) {
+      stopListeningSession();
+      setTimeout(() => startListeningSession(), 300);
+    }
+  };
+
+  const handleDirectSubmitTranscript = (text: string) => {
+    currentTranscriptRef.current = text;
+    processTranscript(text);
+  };
+
   const handleRunPresetTest = (transcript: string, note?: string) => {
+    currentTranscriptRef.current = transcript;
     setLiveTranscript(transcript);
     processTranscript(transcript);
   };
@@ -408,10 +461,11 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-emerald-200">
-      {/* 1. Judge Quick-Test Bar (Docked at top for evaluation) */}
+      {/* 1. Judge Quick-Test Bar */}
       <JudgeQuickTestBar
         onRunTest={handleRunPresetTest}
         onResetData={handleResetData}
+        isPendingConfirmation={Boolean(pendingConfirmation)}
       />
 
       {/* 2. Accessible Header with Elder Accessibility Controls */}
@@ -431,7 +485,7 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* 3. Proactive Budget Warning Banner (Visual + Voice Alert) */}
+      {/* 3. Proactive Budget Warning Banner */}
       {activeBudgetWarning && (
         <div className="px-4 pt-4">
           <BudgetWarningBanner
@@ -455,6 +509,8 @@ export const App: React.FC = () => {
             audioLevel={audioLevel}
             liveTranscript={liveTranscript}
             detectedLanguage={detectedLanguage}
+            selectedSpeechLang={selectedSpeechLang}
+            onChangeSpeechLang={handleSpeechLangChange}
             fillersRemoved={fillersRemoved}
             pendingConfirmation={pendingConfirmation}
             todayTransactions={transactions.filter((t) => t.date.includes('Today'))}
@@ -467,12 +523,14 @@ export const App: React.FC = () => {
               }
             }}
             onRejectOrModifyExpense={() => {
+              stopListeningSession();
               setPendingConfirmation(null);
               setVoiceState('idle');
               speechService.speak('Kripya naya kharch bolein.');
             }}
             onUpdateItemAmount={handleUpdateItemAmount}
             onNavigateTab={(tab) => setActiveTab(tab)}
+            onDirectSubmitTranscript={handleDirectSubmitTranscript}
             queryAnswer={queryAnswer}
           />
         )}
@@ -507,7 +565,6 @@ export const App: React.FC = () => {
         className="sticky bottom-0 z-30 bg-white border-t-2 border-slate-200 shadow-2xl pb-safe"
       >
         <div className="max-w-xl mx-auto px-4 py-2 flex items-center justify-between gap-1">
-          {/* Tab 1: Voice Home */}
           <button
             onClick={() => setActiveTab('home')}
             className={`flex-1 py-2 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
@@ -530,7 +587,6 @@ export const App: React.FC = () => {
             <span className="text-xs mt-1">Voice Home</span>
           </button>
 
-          {/* Tab 2: History */}
           <button
             onClick={() => setActiveTab('history')}
             className={`flex-1 py-2 px-1 rounded-2xl flex flex-col items-center justify-center transition ${
@@ -548,7 +604,6 @@ export const App: React.FC = () => {
             <span className="text-xs mt-1">History</span>
           </button>
 
-          {/* Tab 3: Budgets */}
           <button
             onClick={() => setActiveTab('budgets')}
             className={`flex-1 py-2 px-1 rounded-2xl flex flex-col items-center justify-center transition relative ${
@@ -566,7 +621,6 @@ export const App: React.FC = () => {
             <span className="text-xs mt-1">Budgets</span>
           </button>
 
-          {/* Tab 4: Visual Reports */}
           <button
             onClick={() => {
               setAutoStartReportNarration(false);
